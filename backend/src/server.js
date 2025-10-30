@@ -5,6 +5,7 @@ import messageRoutes from './routes/message.route.js';
 import path from 'path';
 import { connectDB } from './lib/db.js';
 import {ENV} from './lib/env.js';
+import cors from 'cors';
 
 const app = express();
 const __dirname = path.resolve();
@@ -12,6 +13,13 @@ const __dirname = path.resolve();
 const PORT = ENV.PORT || 3000;
 
 app.use(express.json());//middleware to parse json body
+
+//CORS configuration to allow requests from frontend or cookies to be sent
+app.use(cors({
+  origin: ENV.CLIENT_URL,
+  credentials: true,
+}));
+
 app.use(cookieParser())
 
 app.use("/api/auth", authRoutes);
