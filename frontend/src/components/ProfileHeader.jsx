@@ -1,17 +1,104 @@
 
-import { useState, useRef } from "react";
-import { LogOutIcon, VolumeOffIcon, Volume2Icon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { LogOutIcon, VolumeOffIcon, Volume2Icon, ChevronLeftIcon, ChevronRightIcon, AlertTriangleIcon } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 
 const mouseClickSound = new Audio("/sounds/mouse-click.mp3");
 
+// Logout Confirmation Modal Component
+function LogoutModal({ isOpen, onClose, onConfirm }) {
+  useEffect(() => {
+    if (isOpen) {
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isOpen]);
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Handle backdrop click to close modal
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={handleBackdropClick}
+    >
+      <div 
+        className="bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700/50 shadow-2xl relative transform transition-all duration-200 scale-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-4 mb-4">
+          <div className="p-3 rounded-full bg-red-500/20 flex-shrink-0">
+            <AlertTriangleIcon className="w-6 h-6 text-red-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-100">Confirm Logout</h3>
+        </div>
+        
+        <p className="text-slate-300 mb-6 leading-relaxed">
+          Are you sure you want to logout? You'll need to log in again to access your account.
+        </p>
+
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 transition-all duration-200 font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-5 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all duration-200 font-medium shadow-lg shadow-red-500/20"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modalContent, document.body);
+}
+
 function ProfileHeader() {
   const { logout, authUser, updateProfile } = useAuthStore();
   const { isSoundEnabled, toggleSound, isSidebarCollapsed, toggleSidebar } = useChatStore();
   const [selectedImg, setSelectedImg] = useState(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const fileInputRef = useRef(null);
+
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setShowLogoutModal(false);
+    await logout();
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -72,7 +159,7 @@ function ProfileHeader() {
           <div className="flex gap-2 items-center">
             <button
               className="p-2.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 group"
-              onClick={logout}
+              onClick={handleLogoutClick}
               title="Logout"
             >
               <LogOutIcon className="size-5 group-hover:scale-110 transition-transform" />
@@ -99,8 +186,9 @@ function ProfileHeader() {
         <div className="hidden md:flex items-center justify-between w-full">
           {isSidebarCollapsed ? (
             <>
-              {/* COLLAPSED: Only Avatar and Collapse Button */}
-              <div className="flex flex-col items-center gap-4 w-full">
+              {/* COLLAPSED: Avatar, Collapse Button, and Action Buttons */}
+              <div className="flex flex-col items-center gap-3 w-full">
+                {/* Avatar */}
                 <div className="avatar online">
                   <button
                     className="size-12 rounded-full overflow-hidden relative group ring-2 ring-cyan-500/20 hover:ring-cyan-500/40 transition-all duration-300 shadow-lg"
@@ -124,39 +212,41 @@ function ProfileHeader() {
                 
                 {/* COLLAPSE BUTTON */}
                 <button
-                  className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-all duration-200 group"
+                  className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-all duration-200 group w-full flex items-center justify-center"
                   onClick={toggleSidebar}
                   title="Expand sidebar"
                 >
                   <ChevronRightIcon className="size-4 group-hover:scale-110 transition-transform" />
                 </button>
-              </div>
 
-              {/* BUTTONS - Stacked vertically when collapsed */}
-              <div className="flex flex-col gap-2 items-center w-full">
-                <button
-                  className="p-2.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all duration-200 group"
-                  onClick={() => {
-                    mouseClickSound.currentTime = 0;
-                    mouseClickSound.play().catch((error) => console.log("Audio play failed:", error));
-                    toggleSound();
-                  }}
-                  title={isSoundEnabled ? "Disable sound" : "Enable sound"}
-                >
-                  {isSoundEnabled ? (
-                    <Volume2Icon className="size-5 group-hover:scale-110 transition-transform" />
-                  ) : (
-                    <VolumeOffIcon className="size-5 group-hover:scale-110 transition-transform" />
-                  )}
-                </button>
-                
-                <button
-                  className="p-2.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 group"
-                  onClick={logout}
-                  title="Logout"
-                >
-                  <LogOutIcon className="size-5 group-hover:scale-110 transition-transform" />
-                </button>
+                {/* ACTION BUTTONS - Stacked vertically when collapsed */}
+                <div className="flex flex-col gap-2 items-center w-full mt-2">
+                  {/* SOUND TOGGLE BTN */}
+                  <button
+                    className="p-2.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all duration-200 group w-full flex items-center justify-center"
+                    onClick={() => {
+                      mouseClickSound.currentTime = 0;
+                      mouseClickSound.play().catch((error) => console.log("Audio play failed:", error));
+                      toggleSound();
+                    }}
+                    title={isSoundEnabled ? "Disable sound" : "Enable sound"}
+                  >
+                    {isSoundEnabled ? (
+                      <Volume2Icon className="size-5 group-hover:scale-110 transition-transform" />
+                    ) : (
+                      <VolumeOffIcon className="size-5 group-hover:scale-110 transition-transform" />
+                    )}
+                  </button>
+                  
+                  {/* LOGOUT BTN */}
+                  <button
+                    className="p-2.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 group w-full flex items-center justify-center"
+                    onClick={handleLogoutClick}
+                    title="Logout"
+                  >
+                    <LogOutIcon className="size-5 group-hover:scale-110 transition-transform" />
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -214,7 +304,7 @@ function ProfileHeader() {
                 {/* LOGOUT BTN */}
                 <button
                   className="p-2.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 group"
-                  onClick={logout}
+                  onClick={handleLogoutClick}
                   title="Logout"
                 >
                   <LogOutIcon className="size-5 group-hover:scale-110 transition-transform" />
@@ -241,6 +331,13 @@ function ProfileHeader() {
           )}
         </div>
       </div>
+      
+      {/* Logout Confirmation Modal */}
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleLogoutConfirm}
+      />
     </div>
   );
 }
