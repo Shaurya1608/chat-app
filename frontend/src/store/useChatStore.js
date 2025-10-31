@@ -11,11 +11,18 @@ export const useChatStore = create((set, get) => ({
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
-  isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
+  isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled") || "false") === true,
+  isSidebarCollapsed: JSON.parse(localStorage.getItem("isSidebarCollapsed") || "false") === true,
 
   toggleSound: () => {
     localStorage.setItem("isSoundEnabled", !get().isSoundEnabled);
     set({ isSoundEnabled: !get().isSoundEnabled });
+  },
+
+  toggleSidebar: () => {
+    const newState = !get().isSidebarCollapsed;
+    localStorage.setItem("isSidebarCollapsed", newState);
+    set({ isSidebarCollapsed: newState });
   },
 
   setActiveTab: (tab) => set({ activeTab: tab }),
